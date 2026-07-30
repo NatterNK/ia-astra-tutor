@@ -56,7 +56,7 @@ with st.sidebar:
     # Selector de modelo de IA
     modelo_seleccionado = st.selectbox(
         "🤖 Modelo de IA:",
-        ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest", "gemini-1.5-flash", "gemini-pro"]
+        ["gemini-1.5-flash", "gemini-1.5-pro"]
     )
 
     st.divider()
