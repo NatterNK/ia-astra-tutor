@@ -53,11 +53,10 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 with st.sidebar:
     st.header("⚙️ Panel de Estudio")
     
-    # Selector de modelo de IA
-    modelo_seleccionado = st.selectbox(
-        "🤖 Modelo de IA:",
-        ["gemini-1.5-flash", "gemini-1.5-pro"]
-    )
+   model = genai.GenerativeModel(
+    model_name="gemini-3-flash-preview",
+    system_instruction=SYSTEM_INSTRUCTION
+)
 
     st.divider()
 
