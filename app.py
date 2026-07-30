@@ -40,6 +40,23 @@ if "GEMINI_API_KEY" not in st.secrets:
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
+# Detección automática del modelo activo en la cuenta
+@st.cache_resource
+def detectar_modelo_disponible():
+    try:
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # Preferir modelos flash
+        for m in modelos:
+            if "flash" in m.lower():
+                return m
+        if modelos:
+            return modelos[0]
+    except Exception:
+        pass
+    return "gemini-1.5-flash-latest"
+
+modelo_activo = detectar_modelo_disponible()
+
 # Inicialización del almacenamiento de múltiples chats
 if "chats" not in st.session_state:
     st.session_state.chats = {
@@ -75,7 +92,7 @@ with st.sidebar:
     st.session_state.active_chat = chat_seleccionado
     chat_actual = st.session_state.chats[st.session_state.active_chat]
 
-    # Campo para renombrar el chat activo (ej. Biología, Química)
+    # Campo para renombrar el chat activo
     nuevo_nombre_chat = st.text_input("Renombrar este chat:", value=st.session_state.active_chat)
     if nuevo_nombre_chat and nuevo_nombre_chat != st.session_state.active_chat and nuevo_nombre_chat not in st.session_state.chats:
         st.session_state.chats[nuevo_nombre_chat] = st.session_state.chats.pop(st.session_state.active_chat)
@@ -84,7 +101,7 @@ with st.sidebar:
 
     st.divider()
 
-    # Selector de modo de estudio para el chat activo
+    # Selector de modo de estudio
     modos_disponibles = [
         "Tutoría Socrática (Guía paso a paso)",
         "Explicación directa y clara",
@@ -132,9 +149,9 @@ Directrices de comportamiento:
 5. Si adjunta imágenes o texto de documentos, analiza detenidamente el contenido y responde basándote en su material de clase.
 """
 
-# Inicialización del modelo Gemini 2.0 Flash
+# Inicialización con el modelo detectado dinámicamente
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name=modelo_activo,
     system_instruction=SYSTEM_INSTRUCTION
 )
 
@@ -151,52 +168,4 @@ if archivos_cargados:
     for archivo in archivos_cargados:
         if archivo.type == "application/pdf":
             try:
-                pdf_reader = pypdf.PdfReader(io.BytesIO(archivo.read()))
-                for page in pdf_reader.pages:
-                    texto_extraido_pdf += page.extract_text() + "\n"
-            except Exception as e:
-                st.error(f"Error al leer el PDF {archivo.name}: {e}")
-        elif archivo.type in ["image/png", "image/jpg", "image/jpeg"]:
-            try:
-                img = Image.open(archivo)
-                archivos_procesados.append(img)
-            except Exception as e:
-                st.error(f"Error al procesar la imagen {archivo.name}: {e}")
-
-# Entrada de usuario
-user_input = st.chat_input(f"Escribe en [{st.session_state.active_chat}]...")
-
-if user_input:
-    # Construir contenido
-    contenido_peticion = []
-    
-    if texto_extraido_pdf:
-        contenido_peticion.append(f"--- TEXTO EXTRAÍDO DE LOS PDFs ADJUNTOS ---\n{texto_extraido_pdf}\n--- FIN DEL TEXTO ---")
-    
-    for img in archivos_procesados:
-        contenido_peticion.append(img)
-        
-    contenido_peticion.append(user_input)
-    
-    # Mostrar mensaje del usuario
-    with st.chat_message("user"):
-        st.markdown(user_input)
-    chat_actual["messages"].append({"role": "user", "content": user_input})
-    
-    # Respuesta de ASTRA
-    with st.chat_message("assistant"):
-        with st.spinner("ASTRA está pensando..."):
-            try:
-                # Formatear historial existente para Gemini API
-                history_gemini = []
-                for m in chat_actual["messages"][:-1]:
-                    role = "user" if m["role"] == "user" else "model"
-                    history_gemini.append({"role": role, "parts": [m["content"]]})
-                
-                chat = model.start_chat(history=history_gemini)
-                response = chat.send_message(contenido_peticion)
-                
-                st.markdown(response.text)
-                chat_actual["messages"].append({"role": "assistant", "content": response.text})
-            except Exception as e:
-                st.error(f"Ocurrió un error al comunicarse con la API: {e}")
+                pdf_reader = pypdf.PdfReader(io.BytesIO(archivo.read
