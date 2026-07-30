@@ -40,23 +40,6 @@ if "GEMINI_API_KEY" not in st.secrets:
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# Detección automática del modelo activo en la cuenta
-@st.cache_resource
-def detectar_modelo_disponible():
-    try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Preferir modelos flash
-        for m in modelos:
-            if "flash" in m.lower():
-                return m
-        if modelos:
-            return modelos[0]
-    except Exception:
-        pass
-    return "gemini-1.5-flash-latest"
-
-modelo_activo = detectar_modelo_disponible()
-
 # Inicialización del almacenamiento de múltiples chats
 if "chats" not in st.session_state:
     st.session_state.chats = {
@@ -70,6 +53,14 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 with st.sidebar:
     st.header("⚙️ Panel de Estudio")
     
+    # Selector de modelo de IA
+    modelo_seleccionado = st.selectbox(
+        "🤖 Modelo de IA:",
+        ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest", "gemini-1.5-flash", "gemini-pro"]
+    )
+
+    st.divider()
+
     # Botón para crear un nuevo chat
     if st.button("➕ Crear Nuevo Chat", use_container_width=True):
         nuevo_nombre = f"Nuevo Chat {len(st.session_state.chats) + 1}"
@@ -149,9 +140,9 @@ Directrices de comportamiento:
 5. Si adjunta imágenes o texto de documentos, analiza detenidamente el contenido y responde basándote en su material de clase.
 """
 
-# Inicialización con el modelo detectado dinámicamente
+# Inicialización con el modelo seleccionado en el menú
 model = genai.GenerativeModel(
-    model_name=modelo_activo,
+    model_name=modelo_seleccionado,
     system_instruction=SYSTEM_INSTRUCTION
 )
 
