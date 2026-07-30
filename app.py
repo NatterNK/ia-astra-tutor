@@ -53,10 +53,11 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 with st.sidebar:
     st.header("⚙️ Panel de Estudio")
     
-   model = genai.GenerativeModel(
-    model_name="gemini-3-flash-preview",
-    system_instruction=SYSTEM_INSTRUCTION
-)
+    # Selector de modelo de IA (por defecto gemini-3-flash-preview)
+    modelo_seleccionado = st.selectbox(
+        "🤖 Modelo de IA:",
+        ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    )
 
     st.divider()
 
@@ -139,7 +140,7 @@ Directrices de comportamiento:
 5. Si adjunta imágenes o texto de documentos, analiza detenidamente el contenido y responde basándote en su material de clase.
 """
 
-# Inicialización con el modelo seleccionado en el menú
+# Inicialización con el modelo seleccionado
 model = genai.GenerativeModel(
     model_name=modelo_seleccionado,
     system_instruction=SYSTEM_INSTRUCTION
