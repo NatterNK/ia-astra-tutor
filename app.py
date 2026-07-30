@@ -168,4 +168,52 @@ if archivos_cargados:
     for archivo in archivos_cargados:
         if archivo.type == "application/pdf":
             try:
-                pdf_reader = pypdf.PdfReader(io.BytesIO(archivo.read
+                pdf_reader = pypdf.PdfReader(io.BytesIO(archivo.read()))
+                for page in pdf_reader.pages:
+                    texto_extraido_pdf += page.extract_text() + "\n"
+            except Exception as e:
+                st.error(f"Error al leer el PDF {archivo.name}: {e}")
+        elif archivo.type in ["image/png", "image/jpg", "image/jpeg"]:
+            try:
+                img = Image.open(archivo)
+                archivos_procesados.append(img)
+            except Exception as e:
+                st.error(f"Error al procesar la imagen {archivo.name}: {e}")
+
+# Entrada de usuario
+user_input = st.chat_input(f"Escribe en [{st.session_state.active_chat}]...")
+
+if user_input:
+    # Construir contenido
+    contenido_peticion = []
+    
+    if texto_extraido_pdf:
+        contenido_peticion.append(f"--- TEXTO EXTRAÍDO DE LOS PDFs ADJUNTOS ---\n{texto_extraido_pdf}\n--- FIN DEL TEXTO ---")
+    
+    for img in archivos_procesados:
+        contenido_peticion.append(img)
+        
+    contenido_peticion.append(user_input)
+    
+    # Mostrar mensaje del usuario
+    with st.chat_message("user"):
+        st.markdown(user_input)
+    chat_actual["messages"].append({"role": "user", "content": user_input})
+    
+    # Respuesta de ASTRA
+    with st.chat_message("assistant"):
+        with st.spinner("ASTRA está pensando..."):
+            try:
+                # Formatear historial existente para Gemini API
+                history_gemini = []
+                for m in chat_actual["messages"][:-1]:
+                    role = "user" if m["role"] == "user" else "model"
+                    history_gemini.append({"role": role, "parts": [m["content"]]})
+                
+                chat = model.start_chat(history=history_gemini)
+                response = chat.send_message(contenido_peticion)
+                
+                st.markdown(response.text)
+                chat_actual["messages"].append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error(f"Ocurrió un error al comunicarse con la API: {e}")
