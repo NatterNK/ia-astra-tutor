@@ -134,7 +134,7 @@ Directrices de comportamiento:
 
 # Inicialización del modelo Gemini 2.0 Flash
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
+    model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_INSTRUCTION
 )
 
