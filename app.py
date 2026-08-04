@@ -3,10 +3,11 @@ import google.generativeai as genai
 from PIL import Image
 import pypdf
 import io
+import json
 
 # Configuración de la página
 st.set_page_config(
-    page_title="IA ASTRA - Tu Tutora de Estudio",
+    page_title="IA ASTRA - Tutora PAES & Estudio",
     page_icon="✨",
     layout="centered"
 )
@@ -30,8 +31,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">✨ IA ASTRA</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Tu asistenta virtual personalizada para estudiar y repasar</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">✨ IA ASTRA - Especialista PAES</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Tu tutora virtual personalizada para preparar la PAES y estudiar tus asignaturas</div>', unsafe_allow_html=True)
 
 # Validación de API Key en Secrets
 if "GEMINI_API_KEY" not in st.secrets:
@@ -40,24 +41,51 @@ if "GEMINI_API_KEY" not in st.secrets:
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# Inicialización del almacenamiento de múltiples chats
+# Inicialización del almacenamiento de chats
 if "chats" not in st.session_state:
     st.session_state.chats = {
-        "Chat General": {"messages": [], "modo": "Tutoría Socrática (Guía paso a paso)"}
+        "PAES Competencia Lectora": {"messages": [], "modo": "Especialista PAES (Método DEMRE)"}
     }
 
 if "active_chat" not in st.session_state or st.session_state.active_chat not in st.session_state.chats:
-    st.session_state.active_chat = "Chat General"
+    st.session_state.active_chat = list(st.session_state.chats.keys())[0]
 
-# Menú lateral para gestión de múltiples chats y herramientas
+# Menú lateral
 with st.sidebar:
-    st.header("⚙️ Panel de Estudio")
+    st.header("⚙️ Panel PAES & Estudio")
     
-    # Selector de modelo de IA (por defecto gemini-3-flash-preview)
+    # Selector de modelo de IA
     modelo_seleccionado = st.selectbox(
         "🤖 Modelo de IA:",
         ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     )
+
+    st.divider()
+
+    # --- MEMORIA Y PERSISTENCIA DE CHATS (Guardar / Cargar) ---
+    st.subheader("💾 Memoria y Respaldo de Chats")
+    
+    # Exportar / Descargar chats a un archivo JSON
+    data_json = json.dumps(st.session_state.chats, ensure_ascii=False, indent=2)
+    st.download_button(
+        label="📥 Descargar/Guardar mis chats",
+        data=data_json,
+        file_name="mis_chats_astra_paes.json",
+        mime="application/json",
+        use_container_width=True
+    )
+    
+    # Cargar chats desde archivo JSON previamente guardado
+    archivo_respaldo = st.file_uploader("📂 Cargar chats guardados (JSON):", type=["json"])
+    if archivo_respaldo is not None:
+        try:
+            chats_recuperados = json.load(archivo_respaldo)
+            st.session_state.chats = chats_recuperados
+            st.session_state.active_chat = list(chats_recuperados.keys())[0]
+            st.success("¡Chats recuperados con éxito!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error al cargar el archivo de respaldo: {e}")
 
     st.divider()
 
@@ -66,7 +94,7 @@ with st.sidebar:
         nuevo_nombre = f"Nuevo Chat {len(st.session_state.chats) + 1}"
         st.session_state.chats[nuevo_nombre] = {
             "messages": [],
-            "modo": "Tutoría Socrática (Guía paso a paso)"
+            "modo": "Especialista PAES (Método DEMRE)"
         }
         st.session_state.active_chat = nuevo_nombre
         st.rerun()
@@ -94,9 +122,10 @@ with st.sidebar:
 
     # Selector de modo de estudio
     modos_disponibles = [
+        "Especialista PAES (Método DEMRE)",
         "Tutoría Socrática (Guía paso a paso)",
         "Explicación directa y clara",
-        "Generador de Quizzes y Preguntas",
+        "Generador de Quizzes y Preguntas PAES",
         "Resumen y puntos clave"
     ]
     modo_actual = chat_actual.get("modo", modos_disponibles[0])
@@ -109,9 +138,9 @@ with st.sidebar:
     )
     chat_actual["modo"] = modo_estudio
 
-    st.subheader("📎 Cargar material de estudio")
+    st.subheader("📎 Cargar ensayos / guías PAES")
     archivos_cargados = st.file_uploader(
-        "Sube apuntes, fotos de guías o PDFs:",
+        "Sube guías, ensayos PAES, PDFs o fotos de preguntas:",
         type=["pdf", "png", "jpg", "jpeg"],
         accept_multiple_files=True
     )
@@ -125,22 +154,24 @@ with st.sidebar:
             st.session_state.chats[st.session_state.active_chat]["messages"] = []
             st.rerun()
 
-# Definición del Prompt de Sistema de ASTRA
+# PROMPT DE SISTEMA ESPECIALIZADO EN PAES Y DEMRE
 SYSTEM_INSTRUCTION = f"""
-Eres "IA ASTRA", una tutora académica inteligente, empática, paciente y pedagógica.
-Tu objetivo principal es ayudar a la estudiante a comprender sus materias de estudio de manera efectiva.
+Eres "IA ASTRA", una tutora académica experta en la preparación para la Prueba de Acceso a la Educación Superior (PAES) en Chile y alineada con los criterios del DEMRE.
 
-Modalidad seleccionada actualmente por la alumna en esta sesión: {chat_actual['modo']}.
+Modalidad seleccionada actualmente por la estudiante: {chat_actual['modo']}.
 
-Directrices de comportamiento:
-1. Responde siempre en español con un tono cercano, alentador y respetuoso.
-2. Si la alumna te pide explicar un concepto, utiliza analogías sencillas (Técnica Feynman) y estructura la respuesta con puntos claros.
-3. Si estás en modo "Tutoría Socrática", no le des la respuesta final directamente; hazle preguntas guiadas para que ella deduzca el concepto por sí misma.
-4. Si está en modo "Generador de Quizzes", plantéale preguntas de opción múltiple o desarrollo corto de a una a la vez, y dale retroalimentación cuando responda.
-5. Si adjunta imágenes o texto de documentos, analiza detenidamente el contenido y responde basándote en su material de clase.
+Pautas pedagógicas para la PAES:
+1. Especialidad PAES Chile: Conoces la estructura y habilidades evaluadas en Competencia Lectora, Competencia Matemática 1 y 2, Ciencias e Historia.
+2. Análisis pregunta por pregunta: Cuando la estudiante suba o pregunte por una pregunta PAES/DEMRE:
+   a) Identifica la habilidad DEMRE evaluada (ej: Localizar, Interpretar/Relacionar, Evaluar, Resolver problemas).
+   b) Explica la estrategia de resolución idónea para ese tipo de ejercicio.
+   c) Muestra el desarrollo paso a paso y la alternativa correcta.
+   d) Explica por qué las otras alternativas son distractores o trampas comunes del DEMRE.
+3. Tono cercano y motivador: Responde siempre en español, con un tono empático, didáctico y alentador.
+4. Si la estudiante solicita un ensayo o quiz, genera preguntas con formato PAES (4 alternativas de selección múltiple A, B, C, D) y entrega retroalimentación detallada.
 """
 
-# Inicialización con el modelo seleccionado
+# Inicialización del modelo
 model = genai.GenerativeModel(
     model_name=modelo_seleccionado,
     system_instruction=SYSTEM_INSTRUCTION
@@ -175,7 +206,6 @@ if archivos_cargados:
 user_input = st.chat_input(f"Escribe en [{st.session_state.active_chat}]...")
 
 if user_input:
-    # Construir contenido
     contenido_peticion = []
     
     if texto_extraido_pdf:
@@ -186,16 +216,13 @@ if user_input:
         
     contenido_peticion.append(user_input)
     
-    # Mostrar mensaje del usuario
     with st.chat_message("user"):
         st.markdown(user_input)
     chat_actual["messages"].append({"role": "user", "content": user_input})
     
-    # Respuesta de ASTRA
     with st.chat_message("assistant"):
-        with st.spinner("ASTRA está pensando..."):
+        with st.spinner("ASTRA analizando enfoque PAES..."):
             try:
-                # Formatear historial existente para Gemini API
                 history_gemini = []
                 for m in chat_actual["messages"][:-1]:
                     role = "user" if m["role"] == "user" else "model"
