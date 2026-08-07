@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import google.generativeai as genai
 from PIL import Image
 import pypdf
@@ -50,6 +51,20 @@ if "chats" not in st.session_state:
 if "active_chat" not in st.session_state or st.session_state.active_chat not in st.session_state.chats:
     st.session_state.active_chat = list(st.session_state.chats.keys())[0]
 
+# --- FUNCIÓN DE AUTOGUARDADO EN LOCALSTORAGE DEL NAVEGADOR ---
+def guardar_en_navegador(chats):
+    chats_str = json.dumps(chats, ensure_ascii=False)
+    js_code = f"""
+    <script>
+        try {{
+            window.parent.localStorage.setItem('astra_auto_backup', {json.dumps(chats_str)});
+        }} catch(e) {{
+            console.log(e);
+        }}
+    </script>
+    """
+    components.html(js_code, height=0)
+
 # Menú lateral
 with st.sidebar:
     st.header("⚙️ Panel PAES & Estudio")
@@ -62,30 +77,55 @@ with st.sidebar:
 
     st.divider()
 
-    # --- MEMORIA Y PERSISTENCIA DE CHATS (Guardar / Cargar) ---
-    st.subheader("💾 Memoria y Respaldo de Chats")
+    # --- AUTOGUARDADO Y RECUPERACIÓN ---
+    st.subheader("💾 Memoria y Autoguardado")
     
+    # Cargar respaldo desde el navegador
+    raw_browser_data = st.text_input("🔑 Código de recuperación automática:", type="password", help="Pega aquí el respaldo si lo copiaste", key="restore_input")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Restaurar sesión", use_container_width=True, help="Restaura la sesión si la página se recargó"):
+            if "browser_restore_data" in st.session_state and st.session_state.browser_restore_data:
+                try:
+                    st.session_state.chats = json.loads(st.session_state.browser_restore_data)
+                    st.session_state.active_chat = list(st.session_state.chats.keys())[0]
+                    st.success("¡Sesión restaurada con éxito!")
+                    st.rerun()
+                except Exception as e:
+                    st.error("No se pudo restaurar la sesión automática.")
+            elif raw_browser_data:
+                try:
+                    st.session_state.chats = json.loads(raw_browser_data)
+                    st.session_state.active_chat = list(st.session_state.chats.keys())[0]
+                    st.success("¡Sesión restaurada desde código!")
+                    st.rerun()
+                except Exception as e:
+                    st.error("Código de recuperación no válido.")
+            else:
+                st.info("Para restaurar rápidamente, también puedes subir tu archivo JSON abajo.")
+
     # Exportar / Descargar chats a un archivo JSON
     data_json = json.dumps(st.session_state.chats, ensure_ascii=False, indent=2)
     st.download_button(
-        label="📥 Descargar/Guardar mis chats",
+        label="📥 Descargar respaldo JSON",
         data=data_json,
         file_name="mis_chats_astra_paes.json",
         mime="application/json",
         use_container_width=True
     )
     
-    # Cargar chats desde archivo JSON previamente guardado
-    archivo_respaldo = st.file_uploader("📂 Cargar chats guardados (JSON):", type=["json"])
+    # Cargar chats desde archivo JSON
+    archivo_respaldo = st.file_uploader("📂 Cargar archivo JSON:", type=["json"])
     if archivo_respaldo is not None:
         try:
             chats_recuperados = json.load(archivo_respaldo)
             st.session_state.chats = chats_recuperados
             st.session_state.active_chat = list(chats_recuperados.keys())[0]
-            st.success("¡Chats recuperados con éxito!")
+            st.success("¡Chats cargados desde archivo!")
             st.rerun()
         except Exception as e:
-            st.error(f"Error al cargar el archivo de respaldo: {e}")
+            st.error(f"Error al cargar el archivo JSON: {e}")
 
     st.divider()
 
@@ -97,6 +137,7 @@ with st.sidebar:
             "modo": "Especialista PAES (Método DEMRE)"
         }
         st.session_state.active_chat = nuevo_nombre
+        guardar_en_navegador(st.session_state.chats)
         st.rerun()
 
     # Selector de chat activo
@@ -116,6 +157,7 @@ with st.sidebar:
     if nuevo_nombre_chat and nuevo_nombre_chat != st.session_state.active_chat and nuevo_nombre_chat not in st.session_state.chats:
         st.session_state.chats[nuevo_nombre_chat] = st.session_state.chats.pop(st.session_state.active_chat)
         st.session_state.active_chat = nuevo_nombre_chat
+        guardar_en_navegador(st.session_state.chats)
         st.rerun()
 
     st.divider()
@@ -149,9 +191,11 @@ with st.sidebar:
         if len(st.session_state.chats) > 1:
             del st.session_state.chats[st.session_state.active_chat]
             st.session_state.active_chat = list(st.session_state.chats.keys())[0]
+            guardar_en_navegador(st.session_state.chats)
             st.rerun()
         else:
             st.session_state.chats[st.session_state.active_chat]["messages"] = []
+            guardar_en_navegador(st.session_state.chats)
             st.rerun()
 
 # PROMPT DE SISTEMA ESPECIALIZADO EN PAES Y DEMRE
@@ -220,6 +264,9 @@ if user_input:
         st.markdown(user_input)
     chat_actual["messages"].append({"role": "user", "content": user_input})
     
+    # Guardar automáticamente en el navegador
+    guardar_en_navegador(st.session_state.chats)
+    
     with st.chat_message("assistant"):
         with st.spinner("ASTRA analizando enfoque PAES..."):
             try:
@@ -233,5 +280,8 @@ if user_input:
                 
                 st.markdown(response.text)
                 chat_actual["messages"].append({"role": "assistant", "content": response.text})
+                
+                # Volver a guardar tras la respuesta
+                guardar_en_navegador(st.session_state.chats)
             except Exception as e:
                 st.error(f"Ocurrió un error al comunicarse con la API: {e}")
