@@ -74,9 +74,7 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 with st.sidebar:
     st.header("⚙️ Panel PAES & Estudio")
     
-    # Selector de modelo de IA
-    modelo_seleccionado = st.selectbox(
-        # Selector de modelo de IA
+    # Selector de modelo de IA corregido
     modelo_seleccionado = st.selectbox(
         "🤖 Modelo de IA:",
         ["gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
