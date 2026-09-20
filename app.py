@@ -60,7 +60,7 @@ if "GEMINI_API_KEY" not in st.secrets:
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# Inicializar almacenamiento automático
+# Inicializar almacenamiento y estados
 if "chats" not in st.session_state:
     st.session_state.chats = cargar_chats_automaticos()
 
@@ -70,15 +70,18 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 if "plan_generado" not in st.session_state:
     st.session_state.plan_generado = ""
 
+if "seccion_seleccionada" not in st.session_state:
+    st.session_state.seccion_seleccionada = "💬 Chat con ASTRA"
+
 # Menú lateral
 with st.sidebar:
     st.header("📌 Menú Principal")
     
-    # Navegación entre Chat y Planificador
+    # Navegación sincronizada
     seccion_actual = st.radio(
         "Selecciona qué deseas hacer:",
         ["💬 Chat con ASTRA", "📅 Planificador Inteligente PAES"],
-        index=0
+        key="seccion_seleccionada"
     )
 
     st.divider()
@@ -182,16 +185,38 @@ if seccion_actual == "📅 Planificador Inteligente PAES":
 
     if st.session_state.plan_generado:
         st.success("¡Plan de estudio generado con éxito!")
+        
+        # Botón para saltar directamente al Chat con el plan cargado
+        col_btn1, col_btn2 = st.columns()
+        with col_btn1:
+            if st.button("🚀 Comenzar a estudiar este plan en el Chat", type="primary", use_container_width=True):
+                nombre_chat_plan = "🎯 Estudio Plan PAES"
+                st.session_state.chats[nombre_chat_plan] = {
+                    "messages": [
+                        {
+                            "role": "assistant",
+                            "content": f"¡Hola! He cargado tu **Plan de Estudio PAES** en esta conversación. 📚\n\nTengo presentes tus materias, la meta de finalizar contenidos el 17 de noviembre y la fase de ensayos finales hacia el 1 de diciembre.\n\n¿Por qué tema o materia de la **Semana 1** te gustaría que comencemos a ejercitar hoy?"
+                        }
+                    ],
+                    "modo": "Especialista PAES (Método DEMRE)",
+                    "contexto_plan": st.session_state.plan_generado
+                }
+                st.session_state.active_chat = nombre_chat_plan
+                st.session_state.seccion_seleccionada = "💬 Chat con ASTRA"
+                guardar_chats_automaticos(st.session_state.chats)
+                st.rerun()
+
+        with col_btn2:
+            st.download_button(
+                label="📥 Descargar Plan de Estudio (.txt)",
+                data=st.session_state.plan_generado,
+                file_name="plan_estudio_paes_astra.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
         st.markdown("---")
         st.markdown(st.session_state.plan_generado)
-        
-        st.download_button(
-            label="📥 Descargar Plan de Estudio (.txt)",
-            data=st.session_state.plan_generado,
-            file_name="plan_estudio_paes_astra.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
 
 # =====================================================================
 # VISTA 2: CHAT CON ASTRA (TUTORA PAES Y ESTUDIO)
@@ -295,20 +320,23 @@ else:
             st.rerun()
 
     # Prompt de sistema para ASTRA en el Chat
+    contexto_plan_activo = chat_actual.get("contexto_plan", "")
+    info_plan_prompt = f"\n\nPLAN DE ESTUDIO DE LA ALUMNA:\n{contexto_plan_activo}" if contexto_plan_activo else ""
+
     SYSTEM_INSTRUCTION = f"""
     Eres "IA ASTRA", una tutora académica experta en la preparación para la Prueba de Acceso a la Educación Superior (PAES) en Chile y alineada con los criterios del DEMRE.
 
-    Modalidad seleccionada actualmente por la estudiante: {chat_actual['modo']}.
+    Modalidad seleccionada actualmente por la estudiante: {chat_actual['modo']}.{info_plan_prompt}
 
     Pautas pedagógicas para la PAES:
     1. Especialidad PAES Chile: Conoces la estructura y habilidades evaluadas en Competencia Lectora, Competencia Matemática 1 y 2, Ciencias e Historia.
-    2. Análisis pregunta por pregunta: Cuando la estudiante suba o pregunte por una pregunta PAES/DEMRE:
+    2. Si hay un Plan de Estudio cargado: Conoces el cronograma semana a semana de la alumna. Guíala según los temas que le corresponde estudiar y prioriza la ejercitación práctica.
+    3. Análisis pregunta por pregunta: Cuando la estudiante suba o pregunte por una pregunta PAES/DEMRE:
        a) Identifica la habilidad DEMRE evaluada (ej: Localizar, Interpretar/Relacionar, Evaluar, Resolver problemas).
        b) Explica la estrategia de resolución idónea para ese tipo de ejercicio.
        c) Muestra el desarrollo paso a paso y la alternativa correcta.
        d) Explica por qué las otras alternativas son distractores o trampas comunes del DEMRE.
-    3. Tono cercano y motivador: Responde siempre en español, con un tono empático, didáctico y alentador.
-    4. Si la estudiante solicita un ensayo o quiz, genera preguntas con formato PAES (4 alternativas de selección múltiple A, B, C, D) y entrega retroalimentación detallada.
+    4. Tono cercano y motivador: Responde siempre en español, con un tono empático, didáctico y alentador.
     """
 
     model = genai.GenerativeModel(
