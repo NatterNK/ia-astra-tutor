@@ -70,18 +70,18 @@ if "active_chat" not in st.session_state or st.session_state.active_chat not in 
 if "plan_generado" not in st.session_state:
     st.session_state.plan_generado = ""
 
-if "seccion_seleccionada" not in st.session_state:
-    st.session_state.seccion_seleccionada = "💬 Chat con ASTRA"
+if "radio_nav" not in st.session_state:
+    st.session_state.radio_nav = "💬 Chat con ASTRA"
 
 # Menú lateral
 with st.sidebar:
     st.header("📌 Menú Principal")
     
-    # Navegación sincronizada
+    # Navegación con control por estado
     seccion_actual = st.radio(
         "Selecciona qué deseas hacer:",
         ["💬 Chat con ASTRA", "📅 Planificador Inteligente PAES"],
-        key="seccion_seleccionada"
+        key="radio_nav"
     )
 
     st.divider()
@@ -91,6 +91,23 @@ with st.sidebar:
         "🤖 Modelo de IA:",
         ["gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     )
+
+# Función para transferir el plan y cambiar de vista de forma segura
+def pasar_al_chat_con_plan():
+    nombre_chat_plan = "🎯 Estudio Plan PAES"
+    st.session_state.chats[nombre_chat_plan] = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "¡Hola! He cargado tu **Plan de Estudio PAES** en esta conversación. 📚\n\nTengo presentes tus materias, la meta de finalizar contenidos el 17 de noviembre y la fase de ensayos finales hacia el 1 de diciembre.\n\n¿Por qué tema o materia de la **Semana 1** te gustaría que comencemos a ejercitar hoy?"
+            }
+        ],
+        "modo": "Especialista PAES (Método DEMRE)",
+        "contexto_plan": st.session_state.plan_generado
+    }
+    st.session_state.active_chat = nombre_chat_plan
+    st.session_state.radio_nav = "💬 Chat con ASTRA"
+    guardar_chats_automaticos(st.session_state.chats)
 
 # =====================================================================
 # VISTA 1: PLANIFICADOR INTELIGENTE PAES
@@ -186,25 +203,15 @@ if seccion_actual == "📅 Planificador Inteligente PAES":
     if st.session_state.plan_generado:
         st.success("¡Plan de estudio generado con éxito!")
         
-        # Botón para saltar directamente al Chat con el plan cargado (st.columns(2) corregido)
+        # Botones de acción con callback seguro
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("🚀 Comenzar a estudiar este plan en el Chat", type="primary", use_container_width=True):
-                nombre_chat_plan = "🎯 Estudio Plan PAES"
-                st.session_state.chats[nombre_chat_plan] = {
-                    "messages": [
-                        {
-                            "role": "assistant",
-                            "content": f"¡Hola! He cargado tu **Plan de Estudio PAES** en esta conversación. 📚\n\nTengo presentes tus materias, la meta de finalizar contenidos el 17 de noviembre y la fase de ensayos finales hacia el 1 de diciembre.\n\n¿Por qué tema o materia de la **Semana 1** te gustaría que comencemos a ejercitar hoy?"
-                        }
-                    ],
-                    "modo": "Especialista PAES (Método DEMRE)",
-                    "contexto_plan": st.session_state.plan_generado
-                }
-                st.session_state.active_chat = nombre_chat_plan
-                st.session_state.seccion_seleccionada = "💬 Chat con ASTRA"
-                guardar_chats_automaticos(st.session_state.chats)
-                st.rerun()
+            st.button(
+                "🚀 Comenzar a estudiar este plan en el Chat",
+                type="primary",
+                use_container_width=True,
+                on_click=pasar_al_chat_con_plan
+            )
 
         with col_btn2:
             st.download_button(
