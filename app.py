@@ -186,8 +186,8 @@ if seccion_actual == "📅 Planificador Inteligente PAES":
     if st.session_state.plan_generado:
         st.success("¡Plan de estudio generado con éxito!")
         
-        # Botón para saltar directamente al Chat con el plan cargado
-        col_btn1, col_btn2 = st.columns()
+        # Botón para saltar directamente al Chat con el plan cargado (st.columns(2) corregido)
+        col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("🚀 Comenzar a estudiar este plan en el Chat", type="primary", use_container_width=True):
                 nombre_chat_plan = "🎯 Estudio Plan PAES"
