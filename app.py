@@ -77,7 +77,7 @@ if "radio_nav" not in st.session_state:
 with st.sidebar:
     st.header("📌 Menú Principal")
     
-    # Navegación con control por estado
+    # Navegación
     seccion_actual = st.radio(
         "Selecciona qué deseas hacer:",
         ["💬 Chat con ASTRA", "📅 Planificador Inteligente PAES"],
@@ -99,7 +99,7 @@ def pasar_al_chat_con_plan():
         "messages": [
             {
                 "role": "assistant",
-                "content": "¡Hola! He cargado tu **Plan de Estudio PAES** en esta conversación. 📚\n\nTengo presentes tus materias, la meta de finalizar contenidos el 17 de noviembre y la fase de ensayos finales hacia el 1 de diciembre.\n\n¿Por qué tema o materia de la **Semana 1** te gustaría que comencemos a ejercitar hoy?"
+                "content": "¡Hola! He cargado tu **Plan de Estudio Oficial PAES** en esta conversación. 📚\n\nEstá basado estrictamente en el temario oficial del DEMRE que adjuntaste, con la meta de finalizar contenidos el 17 de noviembre y dedicar las dos semanas previas al 1 de diciembre a ensayos reales.\n\n¿Por qué materia o eje temático de la **Semana 1** te gustaría que comencemos a ejercitar hoy?"
             }
         ],
         "modo": "Especialista PAES (Método DEMRE)",
@@ -114,13 +114,12 @@ def pasar_al_chat_con_plan():
 # =====================================================================
 if seccion_actual == "📅 Planificador Inteligente PAES":
     st.markdown('<div class="main-title">📅 Planificador Inteligente PAES</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Diseña tu plan de estudio optimizado hacia el 1 de diciembre</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Diseña tu plan de estudio optimizado con el temario oficial del DEMRE</div>', unsafe_allow_html=True)
     
     st.info("""
     🎯 **Estructura del Calendario PAES**:
-    * **Inicio del plan**: 20 de septiembre.
-    * **Fase 1 (Contenidos + Ejercitación)**: Hasta el **17 de noviembre** (8 semanas).
-    * **Fase 2 (2 semanas finales)**: Del **17 de noviembre al 1 de diciembre**, dedicadas **100% a ensayos reales, guías y análisis de distractores DEMRE**.
+    * **Fase 1 (Contenidos Oficiales + Ejercitación)**: Hasta el **17 de noviembre** (8 semanas).
+    * **Fase 2 (Ensayos Finales)**: Del **17 de noviembre al 1 de diciembre** (2 semanas dedicadas 100% a ensayos y distractores DEMRE).
     """)
     
     with st.form("form_planificador"):
@@ -150,11 +149,18 @@ if seccion_actual == "📅 Planificador Inteligente PAES":
                 default=["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
             )
             
-        st.subheader("3. Contenidos pendientes por materia")
+        st.subheader("3. Temas o materias que necesitas priorizar")
         temas_pendientes = st.text_area(
-            "Detalla qué materias o temas específicos te faltan por pasar o reforzar:",
-            placeholder="Ejemplo:\n- En M1: Funciones cuadráticas, probabilidad y geometría analítica.\n- En Competencia Lectora: Textos argumentativos y preguntas de evaluación.\n- En Ciencias: Genética mendeliana y termodinámica...",
-            height=130
+            "Indica qué contenidos te cuestan más o necesitas priorizar:",
+            placeholder="Ejemplo: En M1 me cuesta geometría y probabilidad; en Lectora necesito reforzar textos expositivos...",
+            height=100
+        )
+
+        st.subheader("4. 📄 Temario o Documento Oficial DEMRE (Recomendado)")
+        archivo_demre = st.file_uploader(
+            "Sube el temario oficial descargado del DEMRE (PDF o imágenes):",
+            type=["pdf", "png", "jpg", "jpeg"],
+            help="ASTRA extraerá los contenidos directamente de este archivo para asegurar que el plan esté 100% actualizado."
         )
         
         boton_generar = st.form_submit_button("🚀 Generar Plan de Estudio PAES")
@@ -163,45 +169,72 @@ if seccion_actual == "📅 Planificador Inteligente PAES":
         if not materias:
             st.warning("Por favor selecciona al menos una materia para planificar.")
         else:
-            with st.spinner("ASTRA está calculando tu distribución horaria y ejercitación..."):
+            with st.spinner("ASTRA está analizando el temario oficial y calculando tu plan..."):
+                texto_demre = ""
+                imagen_demre = None
+
+                # Procesar documento oficial DEMRE si se subió
+                if archivo_demre:
+                    if archivo_demre.type == "application/pdf":
+                        try:
+                            pdf_reader = pypdf.PdfReader(io.BytesIO(archivo_demre.read()))
+                            for page in pdf_reader.pages:
+                                texto_demre += page.extract_text() + "\n"
+                        except Exception as e:
+                            st.error(f"Error al leer el PDF del DEMRE: {e}")
+                    elif archivo_demre.type in ["image/png", "image/jpg", "image/jpeg"]:
+                        try:
+                            imagen_demre = Image.open(archivo_demre)
+                        except Exception as e:
+                            st.error(f"Error al procesar la imagen del DEMRE: {e}")
+
                 prompt_plan = f"""
                 Eres "IA ASTRA", especialista en planificación pedagógica y preparación para la PAES en Chile (criterios DEMRE).
                 
-                Crea un Plan de Estudio Inteligente, realista y detallado con los siguientes datos:
-                - Fecha de inicio: 20 de septiembre.
-                - Fecha de término de materias: 17 de noviembre (8 semanas exactas).
+                Instrucciones esenciales de planificación:
+                - Fecha de inicio: Hoy (septiembre).
+                - Fecha de término de contenidos: 17 de noviembre (8 semanas de estudio).
                 - Fecha de la prueba PAES: 1 de diciembre.
-                - Fase final (17 de noviembre al 1 de diciembre): 2 semanas completas dedicadas EXCLUSIVAMENTE a ensayos, guías y análisis de errores.
+                - Fase final (17 de noviembre al 1 de diciembre): 2 semanas completas dedicadas EXCLUSIVAMENTE a ensayos reales, guías de ejercitación y análisis de distractores.
                 
                 Datos de la alumna:
                 - Materias a rendir: {", ".join(materias)}.
                 - Horas semanales totales: {horas_semanales} horas distribuidas en los días: {", ".join(dias_semana)}.
-                - Contenidos o materias pendientes detalladas por la alumna:
-                {temas_pendientes if temas_pendientes else "Cubrir y repasar los ejes principales del temario oficial DEMRE."}
+                - Contenidos que necesita priorizar:
+                {temas_pendientes if temas_pendientes else "Cubrir y repasar los ejes según el temario oficial."}
+                
+                REGLA FUNDAMENTAL SOBRE EL TEMARIO DEMRE:
+                Si se adjunta el texto o documento del temario DEMRE a continuación, debes basar el plan y los nombres de las unidades y contenidos ESTRICTAMENTE en ese documento oficial. No inventes materias ni temas que no figuren en dicho temario.
                 
                 Estructura obligatoria de tu respuesta:
                 1. RESUMEN ESTRATÉGICO:
                    - Horas semanales asignadas a cada materia.
-                   - Desglose porcentual exacto para cada materia: % Teoría vs. % Ejercitación práctica (recalcando que la PAES exige un 65-75% de ejercitación práctica).
-                2. CRONOGRAMA SEMANA A SEMANA (20 de septiembre al 17 de noviembre):
-                   - Objetivos concretos de avance por semana.
-                   - Qué ejercitar cada semana según las habilidades DEMRE.
+                   - Porcentaje exacto de tiempo para cada materia: % Teoría vs. % Ejercitación práctica (priorizando 65-75% de ejercitación práctica).
+                2. CRONOGRAMA SEMANAL DETALLADO (Hasta el 17 de noviembre):
+                   - Objetivos concretos de avance por semana basados estrictamente en el temario oficial DEMRE.
+                   - Qué habilidades DEMRE y tipos de preguntas ejercitar cada semana.
                 3. ESTRATEGIA PARA LAS 2 SEMANAS FINALES (17 de noviembre al 1 de diciembre):
-                   - Cuántos ensayos rendir con cronómetro.
-                   - Cómo analizar y registrar los distractores y errores en la bitácora DEMRE.
+                   - Calendario de ensayos con cronómetro y análisis de distractores en la bitácora de errores.
                 4. RECOMENDACIONES DE RENDIMIENTO:
-                   - Gestión del cansancio, pausas y técnica de estudio recomendada.
+                   - Manejo de pausas, técnica de estudio recomendada y descanso.
                 """
-                
+
+                contenido_envio = []
+                if texto_demre:
+                    contenido_envio.append(f"--- DOCUMENTO OFICIAL TEMARIO DEMRE ---\n{texto_demre}\n--- FIN DOCUMENTO DEMRE ---")
+                if imagen_demre:
+                    contenido_envio.append(imagen_demre)
+                contenido_envio.append(prompt_plan)
+
                 try:
                     model_plan = genai.GenerativeModel(model_name=modelo_seleccionado)
-                    resp = model_plan.generate_content(prompt_plan)
+                    resp = model_plan.generate_content(contenido_envio)
                     st.session_state.plan_generado = resp.text
                 except Exception as e:
                     st.error(f"Error al generar el plan con la API: {e}")
 
     if st.session_state.plan_generado:
-        st.success("¡Plan de estudio generado con éxito!")
+        st.success("¡Plan de estudio oficial generado con éxito!")
         
         # Botones de acción con callback seguro
         col_btn1, col_btn2 = st.columns(2)
@@ -328,7 +361,7 @@ else:
 
     # Prompt de sistema para ASTRA en el Chat
     contexto_plan_activo = chat_actual.get("contexto_plan", "")
-    info_plan_prompt = f"\n\nPLAN DE ESTUDIO DE LA ALUMNA:\n{contexto_plan_activo}" if contexto_plan_activo else ""
+    info_plan_prompt = f"\n\nPLAN DE ESTUDIO OFICIAL DEMRE DE LA ALUMNA:\n{contexto_plan_activo}" if contexto_plan_activo else ""
 
     SYSTEM_INSTRUCTION = f"""
     Eres "IA ASTRA", una tutora académica experta en la preparación para la Prueba de Acceso a la Educación Superior (PAES) en Chile y alineada con los criterios del DEMRE.
@@ -337,7 +370,7 @@ else:
 
     Pautas pedagógicas para la PAES:
     1. Especialidad PAES Chile: Conoces la estructura y habilidades evaluadas en Competencia Lectora, Competencia Matemática 1 y 2, Ciencias e Historia.
-    2. Si hay un Plan de Estudio cargado: Conoces el cronograma semana a semana de la alumna. Guíala según los temas que le corresponde estudiar y prioriza la ejercitación práctica.
+    2. Si hay un Plan de Estudio cargado: Guíala estrictamente según los temas oficiales del DEMRE que le corresponde estudiar semana a semana, priorizando la resolución práctica de ejercicios.
     3. Análisis pregunta por pregunta: Cuando la estudiante suba o pregunte por una pregunta PAES/DEMRE:
        a) Identifica la habilidad DEMRE evaluada (ej: Localizar, Interpretar/Relacionar, Evaluar, Resolver problemas).
        b) Explica la estrategia de resolución idónea para ese tipo de ejercicio.
